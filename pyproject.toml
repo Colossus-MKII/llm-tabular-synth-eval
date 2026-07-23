@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabular-llm-synth-repro"
+version = "0.1.0"
+description = "Lightweight EPIC and GReaT reproductions for constrained tabular synthetic data experiments."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+]
+
+[project.optional-dependencies]
+hf = [
+  "torch>=2.0",
+  "transformers>=4.35",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
