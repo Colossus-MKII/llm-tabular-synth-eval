@@ -247,7 +247,13 @@ def load_heloc(path: str | Path) -> pd.DataFrame:
     """
 
     raw = pd.read_csv(path)
-    if HELOC_LABEL not in raw.columns and raw.shape[1] == len(HELOC_COLUMNS):
+    has_canonical_header = HELOC_LABEL in raw.columns
+    has_huggingface_header = any(column in raw.columns for column in HELOC_HF_TO_CANONICAL)
+    if (
+        not has_canonical_header
+        and not has_huggingface_header
+        and raw.shape[1] == len(HELOC_COLUMNS)
+    ):
         raw = pd.read_csv(path, header=None, names=HELOC_COLUMNS)
     return normalize_heloc(raw)
 
@@ -268,9 +274,9 @@ def normalize_heloc(raw: pd.DataFrame) -> pd.DataFrame:
     target = df[HELOC_LABEL].astype(str).str.strip().str.rstrip(".")
     target_lower = target.str.lower()
     df[HELOC_LABEL] = np.where(
-        target_lower.isin(["bad", "1", "true"]),
+        target_lower.isin(["bad", "1", "true", "yes"]),
         "Bad",
-        np.where(target_lower.isin(["good", "0", "false"]), "Good", target),
+        np.where(target_lower.isin(["good", "0", "false", "no"]), "Good", target),
     )
     df = df[df[HELOC_LABEL].isin(["Bad", "Good"])].reset_index(drop=True)
 

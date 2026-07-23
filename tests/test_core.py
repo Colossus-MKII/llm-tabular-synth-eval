@@ -137,6 +137,42 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(list(loaded.columns), HELOC_COLUMNS)
         self.assertEqual(len(loaded), 20)
 
+    def test_heloc_huggingface_yes_no_labels(self):
+        df = pd.DataFrame(
+            {
+                "estimate_of_risk": [55, 82],
+                "months_since_first_trade": [144, 96],
+                "months_since_last_trade": [4, 5],
+                "average_duration_of_resolution": [84, 47],
+                "number_of_satisfactory_trades": [20, 16],
+                "nr_trades_insolvent_for_over_60_days": [3, 0],
+                "nr_trades_insolvent_for_over_90_days": [0, 0],
+                "percentage_of_legal_trades": [83, 100],
+                "months_since_last_illegal_trade": [2, -7],
+                "maximum_illegal_trades_over_last_year": [3, 7],
+                "maximum_illegal_trades": [5, 8],
+                "nr_total_trades": [23, 16],
+                "nr_trades_initiated_in_last_year": [1, 3],
+                "percentage_of_installment_trades": [43, 31],
+                "months_since_last_inquiry_not_recent": [0, 0],
+                "nr_inquiries_in_last_6_months": [0, 0],
+                "nr_inquiries_in_last_6_months_not_recent": [0, 0],
+                "net_fraction_of_revolving_burden": [33, 15],
+                "net_fraction_of_installment_burden": [-8, 88],
+                "nr_revolving_trades_with_balance": [8, 4],
+                "nr_installment_trades_with_balance": [1, 2],
+                "nr_banks_with_high_ratio": [1, 0],
+                "percentage_trades_with_balance": [69, 67],
+                "is_at_risk": ["yes", "no"],
+            }
+        )
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "hf_heloc.csv"
+            df.to_csv(path, index=False)
+            loaded = load_heloc(path)
+        self.assertEqual(list(loaded.columns), HELOC_COLUMNS)
+        self.assertEqual(loaded[HELOC_LABEL].tolist(), ["Bad", "Good"])
+
 
 if __name__ == "__main__":
     unittest.main()

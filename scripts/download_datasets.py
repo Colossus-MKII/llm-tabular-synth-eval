@@ -25,6 +25,7 @@ ADULT_URLS = {
     "adult.names": "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names",
 }
 HELOC_URL = "https://huggingface.co/datasets/mstz/heloc/resolve/main/risk/train.csv"
+HELOC_HF_DATASET = "mstz/heloc"
 
 
 def main() -> None:
@@ -92,16 +93,24 @@ def download_heloc(outdir: Path, force: bool = False) -> dict:
     raw_dir = outdir / "raw" / "heloc"
     raw_dir.mkdir(parents=True, exist_ok=True)
     raw_path = raw_dir / "mstz_heloc_risk_train.csv"
-    download_url(HELOC_URL, raw_path, force=force)
+    source = HELOC_URL
+    direct_error = None
+    try:
+        download_url(HELOC_URL, raw_path, force=force)
+        heloc = load_nonempty_heloc(raw_path)
+    except Exception as exc:
+        direct_error = f"{type(exc).__name__}: {exc}"
+        heloc = download_heloc_with_datasets(raw_path)
+        source = HELOC_HF_DATASET
 
-    heloc = load_heloc(raw_path)
     output_path = outdir / "heloc_dataset_v1.csv"
     heloc.to_csv(output_path, index=False)
 
     validate_heloc(output_path)
     summary = {
         "dataset": "heloc",
-        "source": HELOC_URL,
+        "source": source,
+        "direct_download_error": direct_error,
         "raw_path": str(raw_path),
         "path": str(output_path),
         "n_rows": len(heloc),
@@ -112,6 +121,28 @@ def download_heloc(outdir: Path, force: bool = False) -> dict:
     return summary
 
 
+def load_nonempty_heloc(path: Path) -> pd.DataFrame:
+    heloc = load_heloc(path)
+    if heloc.empty:
+        raise ValueError(f"HELOC source normalized to zero rows: {path}")
+    return heloc
+
+
+def download_heloc_with_datasets(raw_path: Path) -> pd.DataFrame:
+    try:
+        from datasets import load_dataset
+    except ImportError as exc:
+        raise RuntimeError(
+            "Direct HELOC download produced no usable rows, and the datasets package "
+            "is not installed for the Hugging Face fallback."
+        ) from exc
+
+    dataset = load_dataset(HELOC_HF_DATASET)["train"]
+    raw = pd.DataFrame(dataset)
+    raw.to_csv(raw_path, index=False)
+    return load_nonempty_heloc(raw_path)
+
+
 def download_url(url: str, destination: Path, force: bool = False) -> None:
     if destination.exists() and not force:
         return
@@ -120,7 +151,10 @@ def download_url(url: str, destination: Path, force: bool = False) -> None:
     tmp_path = destination.with_suffix(destination.suffix + ".tmp")
     request = urllib.request.Request(url, headers={"User-Agent": "tabular-llm-synth/0.1"})
     with urllib.request.urlopen(request, timeout=120) as response:
-        tmp_path.write_bytes(response.read())
+        content = response.read()
+    if not content.strip():
+        raise ValueError(f"Empty response while downloading {url}")
+    tmp_path.write_bytes(content)
     tmp_path.replace(destination)
 
 
